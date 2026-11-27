@@ -1,0 +1,6 @@
+{
+  "name": "모노그래프 포토 앨범",
+  "description": "여러 장의 사진을 한 쪽에 한 장씩 담아 제목과 설명을 기록하고 PDF 앨범으로 저장하는 웹 애플리케이션",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

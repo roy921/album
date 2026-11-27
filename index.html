@@ -1,0 +1,2665 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>모노그래프 포토 앨범</title>
+    <meta
+      name="description"
+      content="여러 장의 사진을 한 쪽에 한 장씩 담아 제목과 설명을 기록하고 PDF 앨범으로 저장하는 웹 애플리케이션"
+    />
+    <meta property="og:title" content="모노그래프 포토 앨범" />
+    <meta
+      property="og:description"
+      content="여러 장의 사진을 한 쪽에 한 장씩 담아 제목과 설명을 기록하고 PDF 앨범으로 저장하는 웹 애플리케이션"
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Fonts CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- PDF Generation Library (jsPDF CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+
+    <style>
+      :root {
+        --bg-canvas: #f4f3ef;
+        --bg-surface: #ffffff;
+        --bg-subtle: #ebe9e2;
+        --bg-hover: #f9f8f5;
+        --border-hairline: #e2dfd7;
+        --border-strong: #cfcbc0;
+        --text-primary: #18181b;
+        --text-secondary: #52525b;
+        --text-muted: #71717a;
+        --accent-primary: #18181b;
+        --accent-primary-hover: #27272a;
+        --accent-cobalt: #2563eb;
+        --accent-cobalt-soft: rgba(37, 99, 235, 0.08);
+        --danger: #dc2626;
+        --danger-soft: rgba(220, 38, 38, 0.08);
+        --shadow-sheet: 0 18px 45px -20px rgba(24, 24, 27, 0.16),
+          0 2px 8px -2px rgba(24, 24, 27, 0.06);
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --font-sans: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-serif: "Noto Serif KR", Georgia, serif;
+        --font-handwriting: "Gaegu", "Noto Sans KR", cursive;
+        --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background-color: var(--bg-canvas);
+        color: var(--text-primary);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font-family: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid var(--accent-cobalt);
+        outline-offset: 2px;
+      }
+
+      /* Top Navigation Bar (3-zone contract) */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: rgba(244, 243, 239, 0.92);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border-hairline);
+      }
+
+      .topbar-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 32px;
+      }
+
+      .brand {
+        font-family: var(--font-serif);
+        font-size: 1.125rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin: 0;
+      }
+
+      .topbar-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .topbar-meta .sep {
+        color: var(--border-strong);
+      }
+
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 18px;
+        border-radius: var(--radius-sm);
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1;
+        white-space: nowrap;
+        flex-shrink: 0;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: background-color 160ms var(--ease-settle),
+          border-color 160ms var(--ease-settle),
+          color 160ms var(--ease-settle),
+          transform 120ms var(--ease-settle),
+          opacity 160ms var(--ease-settle);
+      }
+
+      .btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .btn:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background-color: var(--accent-primary);
+        color: #ffffff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background-color: var(--accent-primary-hover);
+      }
+
+      .btn-accent {
+        background-color: var(--accent-cobalt);
+        color: #ffffff;
+      }
+
+      .btn-accent:hover:not(:disabled) {
+        background-color: #1d4ed8;
+      }
+
+      .btn-secondary {
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        border-color: var(--border-hairline);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background-color: var(--bg-hover);
+        border-color: var(--border-strong);
+      }
+
+      .btn-ghost {
+        background-color: transparent;
+        color: var(--text-secondary);
+        padding: 8px 12px;
+      }
+
+      .btn-ghost:hover:not(:disabled) {
+        background-color: var(--bg-subtle);
+        color: var(--text-primary);
+      }
+
+      .btn-danger-ghost {
+        background-color: transparent;
+        color: var(--text-muted);
+        padding: 8px 12px;
+      }
+
+      .btn-danger-ghost:hover:not(:disabled) {
+        background-color: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      /* Main Layout */
+      .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+      }
+
+      /* Empty Upload View */
+      .empty-stage {
+        max-width: 780px;
+        margin: 40px auto 0;
+        text-align: center;
+      }
+
+      .empty-title {
+        font-family: var(--font-serif);
+        font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        margin: 0 0 14px;
+        color: var(--text-primary);
+        text-wrap: balance;
+      }
+
+      .empty-subtitle {
+        font-size: 1rem;
+        line-height: 1.65;
+        color: var(--text-secondary);
+        margin: 0 auto 32px;
+        max-width: 540px;
+      }
+
+      .dropzone {
+        background-color: var(--bg-surface);
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        padding: 56px 32px;
+        cursor: pointer;
+        transition: border-color 180ms var(--ease-settle),
+          background-color 180ms var(--ease-settle),
+          transform 180ms var(--ease-settle);
+      }
+
+      .dropzone:hover,
+      .dropzone.is-dragover {
+        border-color: var(--accent-cobalt);
+        background-color: var(--accent-cobalt-soft);
+      }
+
+      .dropzone-icon-wrap {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 18px;
+        border-radius: var(--radius-md);
+        background-color: var(--bg-canvas);
+        border: 1px solid var(--border-hairline);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-primary);
+      }
+
+      .dropzone-heading {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 8px;
+      }
+
+      .dropzone-hint {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin: 0 0 24px;
+      }
+
+      .feature-strip {
+        margin-top: 36px;
+        padding-top: 28px;
+        border-top: 1px solid var(--border-hairline);
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        text-align: left;
+      }
+
+      .feature-item-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 6px;
+      }
+
+      .feature-item-desc {
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        margin: 0;
+      }
+
+      /* Album Workspace */
+      .workspace[hidden],
+      .empty-stage[hidden] {
+        display: none;
+      }
+
+      .workspace-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--border-hairline);
+      }
+
+      .album-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 220px;
+        flex: 1;
+      }
+
+      .album-title-label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .album-title-input {
+        width: 100%;
+        max-width: 340px;
+        padding: 8px 12px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        transition: border-color 160ms var(--ease-settle);
+      }
+
+      .album-title-input:hover {
+        border-color: var(--border-strong);
+      }
+
+      .album-title-input:focus {
+        outline: none;
+        border-color: var(--accent-cobalt);
+      }
+
+      .toolbar-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* Segmented orientation switch */
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px;
+        background-color: var(--bg-subtle);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-hairline);
+      }
+
+      .segmented-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 0.8125rem;
+        font-weight: 500;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        min-height: 32px;
+        transition: background-color 150ms var(--ease-settle),
+          color 150ms var(--ease-settle);
+      }
+
+      .segmented-btn.is-active {
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08);
+      }
+
+      /* Single-Page Album Spread */
+      .album-stage {
+        position: relative;
+        max-width: 920px;
+        margin: 0 auto;
+      }
+
+      .album-stage.is-dragover .page-sheet {
+        border-color: var(--accent-cobalt);
+        box-shadow: 0 0 0 3px var(--accent-cobalt-soft), var(--shadow-sheet);
+      }
+
+      .page-sheet {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sheet);
+        padding: 28px 36px 34px;
+        transition: border-color 180ms var(--ease-settle),
+          opacity 180ms var(--ease-settle),
+          transform 180ms var(--ease-settle);
+      }
+
+      .page-sheet.is-turning {
+        opacity: 0.65;
+        transform: translateY(3px);
+      }
+
+      .page-sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-hairline);
+      }
+
+      .page-folio {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .page-folio strong {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .page-tools {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .page-tools .btn {
+        min-height: 34px;
+        padding: 6px 10px;
+        font-size: 0.8125rem;
+      }
+
+      /* Photo Mat Frame (One Photo Per Page) */
+      .photo-frame {
+        background-color: #faf9f6;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        padding: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: clamp(300px, 52vh, 520px);
+        overflow: hidden;
+      }
+
+      .photo-frame img {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+        border-radius: 2px;
+        box-shadow: 0 4px 16px rgba(24, 24, 27, 0.08);
+      }
+
+      /* Editorial Caption Inputs */
+      .caption-block {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-hairline);
+      }
+
+      .caption-title-input {
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+        margin: 0 -10px 8px;
+        font-family: var(--font-serif);
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.35;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        background-color: transparent;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .caption-title-input::placeholder {
+        color: #a1a1aa;
+        font-weight: 500;
+      }
+
+      .caption-title-input:hover {
+        background-color: var(--bg-hover);
+      }
+
+      .caption-title-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+      }
+
+      .caption-desc-input {
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+        margin: 0 -10px;
+        font-family: var(--font-sans);
+        font-size: 0.9375rem;
+        line-height: 1.7;
+        color: var(--text-secondary);
+        background-color: transparent;
+        resize: vertical;
+        min-height: 76px;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .caption-desc-input::placeholder {
+        color: #a1a1aa;
+      }
+
+      .caption-desc-input:hover {
+        background-color: var(--bg-hover);
+      }
+
+      .caption-desc-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+        color: var(--text-primary);
+      }
+
+      /* Cover Page (First Page) & Closing Page (Last Page) */
+      .cover-view,
+      .closing-view {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        min-height: clamp(380px, 60vh, 620px);
+        padding: 40px 28px;
+        background-color: #faf9f6;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+      }
+
+      .cover-view[hidden],
+      .closing-view[hidden],
+      .photo-view[hidden] {
+        display: none;
+      }
+
+      .cover-kicker {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        color: var(--text-muted);
+        margin-bottom: 24px;
+      }
+
+      .cover-title-input {
+        width: 100%;
+        max-width: 680px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        font-family: var(--font-serif);
+        font-size: clamp(2rem, 4.4vw, 3.25rem);
+        font-weight: 700;
+        line-height: 1.28;
+        letter-spacing: -0.025em;
+        text-align: center;
+        color: var(--text-primary);
+        background-color: transparent;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .cover-title-input::placeholder {
+        color: #a1a1aa;
+        font-weight: 500;
+      }
+
+      .cover-title-input:hover {
+        background-color: rgba(255, 255, 255, 0.72);
+      }
+
+      .cover-title-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+      }
+
+      .cover-subtitle-input {
+        width: 100%;
+        max-width: 600px;
+        margin-top: 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 8px 14px;
+        font-family: var(--font-sans);
+        font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+        font-weight: 500;
+        line-height: 1.5;
+        text-align: center;
+        color: var(--text-secondary);
+        background-color: transparent;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .cover-subtitle-input::placeholder {
+        color: #a1a1aa;
+        font-weight: 400;
+      }
+
+      .cover-subtitle-input:hover {
+        background-color: rgba(255, 255, 255, 0.72);
+      }
+
+      .cover-subtitle-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+        color: var(--text-primary);
+      }
+
+      .cover-divider {
+        width: 64px;
+        height: 1px;
+        background-color: var(--border-strong);
+        margin: 34px auto;
+      }
+
+      .cover-meta-grid {
+        width: 100%;
+        max-width: 520px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .cover-meta-field {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .cover-meta-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+
+      .cover-meta-input {
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        font-size: clamp(1rem, 1.8vw, 1.25rem);
+        font-weight: 600;
+        text-align: center;
+        color: var(--text-primary);
+        background-color: transparent;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .cover-meta-input::placeholder {
+        color: #a1a1aa;
+        font-weight: 400;
+      }
+
+      .cover-meta-input:hover {
+        background-color: rgba(255, 255, 255, 0.72);
+      }
+
+      .cover-meta-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+      }
+
+      .closing-kicker {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+      }
+
+      .closing-text-input {
+        width: 100%;
+        max-width: 620px;
+        min-height: 180px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        font-family: var(--font-serif);
+        font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+        font-weight: 500;
+        line-height: 1.85;
+        text-align: center;
+        color: var(--text-primary);
+        background-color: transparent;
+        resize: vertical;
+        transition: background-color 150ms var(--ease-settle),
+          border-color 150ms var(--ease-settle);
+      }
+
+      .closing-text-input::placeholder {
+        color: #a1a1aa;
+        font-weight: 400;
+      }
+
+      .closing-text-input:hover {
+        background-color: rgba(255, 255, 255, 0.72);
+      }
+
+      .closing-text-input:focus {
+        outline: none;
+        background-color: var(--bg-surface);
+        border-color: var(--accent-cobalt);
+      }
+
+      /* Scoped Preview Color Themes (white / beige / navy) */
+      .page-sheet {
+        --sheet-bg: #ffffff;
+        --sheet-inner-bg: #faf9f6;
+        --sheet-border: #e2dfd7;
+        --sheet-divider: #cfcbc0;
+        --sheet-text-primary: #18181b;
+        --sheet-text-secondary: #52525b;
+        --sheet-text-muted: #71717a;
+        --sheet-placeholder: #a1a1aa;
+        --sheet-input-hover: rgba(24, 24, 27, 0.04);
+        --sheet-input-focus: #ffffff;
+        --sheet-tool-hover: #ebe9e2;
+        background-color: var(--sheet-bg);
+        border-color: var(--sheet-border);
+        color: var(--sheet-text-primary);
+        transition: background-color 180ms var(--ease-settle),
+          border-color 180ms var(--ease-settle),
+          color 180ms var(--ease-settle),
+          opacity 180ms var(--ease-settle),
+          transform 180ms var(--ease-settle);
+      }
+
+      .page-sheet[data-album-theme="beige"] {
+        --sheet-bg: #f4ecdc;
+        --sheet-inner-bg: #ebe1cc;
+        --sheet-border: #d8cbb0;
+        --sheet-divider: #bfa984;
+        --sheet-text-primary: #2c2219;
+        --sheet-text-secondary: #5c4c3c;
+        --sheet-text-muted: #786754;
+        --sheet-placeholder: #9c8c79;
+        --sheet-input-hover: rgba(44, 34, 25, 0.05);
+        --sheet-input-focus: #f9f4e8;
+        --sheet-tool-hover: rgba(44, 34, 25, 0.08);
+      }
+
+      .page-sheet[data-album-theme="navy"] {
+        --sheet-bg: #14213d;
+        --sheet-inner-bg: #1b2b4d;
+        --sheet-border: #2c3f68;
+        --sheet-divider: #4b6599;
+        --sheet-text-primary: #f4f6fb;
+        --sheet-text-secondary: #cbd5e1;
+        --sheet-text-muted: #94a3b8;
+        --sheet-placeholder: #7c8ea8;
+        --sheet-input-hover: rgba(255, 255, 255, 0.08);
+        --sheet-input-focus: #1e3156;
+        --sheet-tool-hover: rgba(255, 255, 255, 0.1);
+      }
+
+      .page-sheet .page-sheet-header,
+      .page-sheet .caption-block {
+        border-color: var(--sheet-border);
+      }
+
+      .page-sheet .page-folio,
+      .page-sheet .cover-kicker,
+      .page-sheet .cover-meta-label,
+      .page-sheet .closing-kicker {
+        color: var(--sheet-text-muted);
+      }
+
+      .page-sheet .page-folio strong,
+      .page-sheet .caption-title-input,
+      .page-sheet .cover-title-input,
+      .page-sheet .cover-meta-input,
+      .page-sheet .closing-text-input {
+        color: var(--sheet-text-primary);
+      }
+
+      .page-sheet .caption-desc-input,
+      .page-sheet .cover-subtitle-input {
+        color: var(--sheet-text-secondary);
+      }
+
+      .page-sheet .photo-frame,
+      .page-sheet .cover-view,
+      .page-sheet .closing-view {
+        background-color: var(--sheet-inner-bg);
+        border-color: var(--sheet-border);
+      }
+
+      .page-sheet .cover-divider {
+        background-color: var(--sheet-divider);
+      }
+
+      .page-sheet .caption-title-input::placeholder,
+      .page-sheet .caption-desc-input::placeholder,
+      .page-sheet .cover-title-input::placeholder,
+      .page-sheet .cover-subtitle-input::placeholder,
+      .page-sheet .cover-meta-input::placeholder,
+      .page-sheet .closing-text-input::placeholder {
+        color: var(--sheet-placeholder);
+      }
+
+      .page-sheet .caption-title-input:hover,
+      .page-sheet .caption-desc-input:hover,
+      .page-sheet .cover-title-input:hover,
+      .page-sheet .cover-subtitle-input:hover,
+      .page-sheet .cover-meta-input:hover,
+      .page-sheet .closing-text-input:hover {
+        background-color: var(--sheet-input-hover);
+      }
+
+      .page-sheet .caption-title-input:focus,
+      .page-sheet .caption-desc-input:focus,
+      .page-sheet .cover-title-input:focus,
+      .page-sheet .cover-subtitle-input:focus,
+      .page-sheet .cover-meta-input:focus,
+      .page-sheet .closing-text-input:focus {
+        background-color: var(--sheet-input-focus);
+        color: var(--sheet-text-primary);
+      }
+
+      .page-sheet .page-tools .btn-ghost {
+        color: var(--sheet-text-secondary);
+      }
+
+      .page-sheet .page-tools .btn-ghost:hover:not(:disabled) {
+        background-color: var(--sheet-tool-hover);
+        color: var(--sheet-text-primary);
+      }
+
+      .page-sheet .page-tools .btn-danger-ghost {
+        color: var(--sheet-text-muted);
+      }
+
+      .page-sheet[data-album-theme="navy"] .page-tools .btn-danger-ghost:hover:not(:disabled) {
+        background-color: rgba(248, 113, 113, 0.16);
+        color: #fca5a5;
+      }
+
+      /* Scoped Preview Font Families (gothic / myeongjo / handwriting) */
+      .page-sheet[data-album-font="gothic"] {
+        --sheet-font: var(--font-sans);
+      }
+
+      .page-sheet[data-album-font="myeongjo"] {
+        --sheet-font: var(--font-serif);
+      }
+
+      .page-sheet[data-album-font="handwriting"] {
+        --sheet-font: var(--font-handwriting);
+      }
+
+      .page-sheet .cover-title-input,
+      .page-sheet .cover-subtitle-input,
+      .page-sheet .cover-meta-input,
+      .page-sheet .caption-title-input,
+      .page-sheet .caption-desc-input,
+      .page-sheet .closing-text-input {
+        font-family: var(--sheet-font, var(--font-sans));
+      }
+
+      .thumb-special-box {
+        width: 100%;
+        height: 60px;
+        background-color: #faf9f6;
+        border: 1px solid var(--border-hairline);
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-serif);
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        padding: 4px;
+        text-align: center;
+      }
+
+      /* Previous / Next Navigation Bar */
+      .pager-bar {
+        margin-top: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .pager-btn {
+        min-width: 132px;
+        min-height: 44px;
+      }
+
+      .pager-status {
+        text-align: center;
+      }
+
+      .pager-counter {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .pager-shortcut-hint {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* Thumbnail Strip */
+      .thumb-strip-wrap {
+        max-width: 920px;
+        margin: 28px auto 0;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-hairline);
+      }
+
+      .thumb-strip-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+
+      .thumb-strip {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        overflow-x: auto;
+        padding: 4px 2px 10px;
+        scrollbar-width: thin;
+      }
+
+      .thumb-item {
+        position: relative;
+        flex: 0 0 auto;
+        width: 92px;
+        padding: 6px;
+        background-color: var(--bg-surface);
+        border: 1.5px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 150ms var(--ease-settle),
+          transform 150ms var(--ease-settle);
+      }
+
+      .thumb-item:hover {
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .thumb-item.is-active {
+        border-color: var(--accent-cobalt);
+        box-shadow: 0 0 0 2px var(--accent-cobalt-soft);
+      }
+
+      .thumb-img-box {
+        width: 100%;
+        height: 60px;
+        background-color: var(--bg-canvas);
+        border-radius: 3px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .thumb-img-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .thumb-label {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .thumb-item.is-active .thumb-label {
+        color: var(--accent-cobalt);
+        font-weight: 600;
+      }
+
+      .thumb-add-btn {
+        flex: 0 0 auto;
+        width: 92px;
+        height: 94px;
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background-color: transparent;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 500;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: border-color 150ms var(--ease-settle),
+          color 150ms var(--ease-settle),
+          background-color 150ms var(--ease-settle);
+      }
+
+      .thumb-add-btn:hover {
+        border-color: var(--accent-cobalt);
+        color: var(--accent-cobalt);
+        background-color: var(--accent-cobalt-soft);
+      }
+
+      /* Inline Status Toast */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(16px);
+        background-color: var(--text-primary);
+        color: #ffffff;
+        padding: 10px 18px;
+        border-radius: var(--radius-sm);
+        font-size: 0.875rem;
+        font-weight: 500;
+        box-shadow: 0 12px 28px rgba(24, 24, 27, 0.22);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 50;
+        transition: opacity 180ms var(--ease-settle),
+          transform 180ms var(--ease-settle);
+      }
+
+      .toast.is-visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 768px) {
+        .topbar-inner {
+          padding: 12px 16px;
+          gap: 12px;
+        }
+
+        .topbar-meta {
+          display: none;
+        }
+
+        .main-container {
+          padding: 20px 16px 48px;
+        }
+
+        .feature-strip {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+
+        .page-sheet {
+          padding: 18px 18px 22px;
+        }
+
+        .photo-frame {
+          height: clamp(240px, 42vh, 380px);
+          padding: 10px;
+        }
+
+        .caption-title-input {
+          font-size: 1.25rem;
+        }
+
+        .pager-btn {
+          min-width: 104px;
+        }
+
+        .pager-shortcut-hint {
+          display: none;
+        }
+
+        .cover-meta-grid {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+
+      /* Print Stylesheet Fallback (1 Photo Per Page) */
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        .topbar,
+        .workspace-toolbar,
+        .pager-bar,
+        .thumb-strip-wrap,
+        .page-tools,
+        .toast {
+          display: none !important;
+        }
+
+        .main-container {
+          padding: 0;
+          max-width: none;
+        }
+
+        .page-sheet {
+          box-shadow: none;
+          border: none;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <input
+      id="photo-file-input"
+      type="file"
+      accept="image/*"
+      multiple
+      class="sr-only"
+    />
+
+    <!-- Top Navigation Bar -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="brand">모노그래프 포토 앨범</h1>
+
+        <div class="topbar-meta" id="topbar-meta">
+          <span id="topbar-count">사진 0장</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span>한 쪽에 한 장씩 보기</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button type="button" class="btn btn-secondary" id="btn-export-png" title="지금 보고 있는 쪽을 PNG 그림 파일로 저장" disabled>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span id="btn-export-png-label">PNG 저장</span>
+          </button>
+
+          <button type="button" class="btn btn-accent" id="btn-export-pdf" disabled>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span id="btn-export-label">PDF 저장</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <!-- Empty State / Multi-Photo Upload -->
+      <section class="empty-stage" id="empty-stage" aria-label="사진 업로드">
+        <h2 class="empty-title">한 장씩 넘겨보는 나만의 사진 앨범</h2>
+        <p class="empty-subtitle">
+          여러 장의 사진을 한 번에 올리면 페이지마다 제목과 설명을 자유롭게 적고, 깔끔한 PDF 책자로 저장할 수 있습니다.
+        </p>
+
+        <div
+          class="dropzone"
+          id="empty-dropzone"
+          role="button"
+          tabindex="0"
+          aria-label="사진 파일 선택 또는 끌어다 놓기"
+        >
+          <div class="dropzone-icon-wrap" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </div>
+          <p class="dropzone-heading">여기로 사진 여러 장을 끌어다 놓으세요</p>
+          <p class="dropzone-hint">JPG, PNG, WEBP 이미지 지원 · 한 번에 여러 파일 선택 가능</p>
+          <button type="button" class="btn btn-primary" id="btn-empty-upload">
+            사진 여러 장 선택하기
+          </button>
+        </div>
+
+        <div class="feature-strip">
+          <div>
+            <h3 class="feature-item-title">01. 한 쪽에 한 장씩</h3>
+            <p class="feature-item-desc">사진의 비율을 해치지 않고 여백과 함께 한 페이지에 한 장씩 또렷하게 담아냅니다.</p>
+          </div>
+          <div>
+            <h3 class="feature-item-title">02. 제목과 설명 기록</h3>
+            <p class="feature-item-desc">사진마다 제목과 이야기를 적어 나만의 기록집으로 완성할 수 있습니다.</p>
+          </div>
+          <div>
+            <h3 class="feature-item-title">03. 깔끔한 PDF 저장</h3>
+            <p class="feature-item-desc">세로형 또는 가로형 A4 규격에 맞춰 모든 페이지를 하나의 PDF 파일로 내려받습니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Album Workspace -->
+      <section class="workspace" id="album-workspace" hidden aria-label="앨범 편집 및 보기">
+        <!-- Workspace Toolbar -->
+        <div class="workspace-toolbar">
+          <div class="album-title-group">
+            <label for="album-title-input" class="album-title-label">앨범 제목</label>
+            <input
+              id="album-title-input"
+              type="text"
+              class="album-title-input"
+              value="나의 사진 앨범"
+              placeholder="앨범 제목 입력"
+              maxlength="60"
+            />
+          </div>
+
+          <div class="toolbar-controls">
+            <div class="segmented" role="group" aria-label="앨범 글꼴">
+              <button type="button" class="segmented-btn is-active" data-font="gothic">
+                고딕
+              </button>
+              <button type="button" class="segmented-btn" data-font="myeongjo">
+                명조
+              </button>
+              <button type="button" class="segmented-btn" data-font="handwriting">
+                손글씨
+              </button>
+            </div>
+
+            <div class="segmented" role="group" aria-label="앨범 색 분위기">
+              <button type="button" class="segmented-btn is-active" data-theme="white">
+                흰색(깔끔)
+              </button>
+              <button type="button" class="segmented-btn" data-theme="beige">
+                베이지(따뜻한 종이)
+              </button>
+              <button type="button" class="segmented-btn" data-theme="navy">
+                네이비(차분함)
+              </button>
+            </div>
+
+            <div class="segmented" role="group" aria-label="PDF 용지 방향">
+              <button type="button" class="segmented-btn is-active" data-orientation="portrait">
+                세로 A4
+              </button>
+              <button type="button" class="segmented-btn" data-orientation="landscape">
+                가로 A4
+              </button>
+            </div>
+
+            <button type="button" class="btn btn-secondary" id="btn-add-photos">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              사진 추가
+            </button>
+
+            <button type="button" class="btn btn-danger-ghost" id="btn-clear-all">
+              전체 비우기
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Single-Page Spread -->
+        <div class="album-stage" id="album-stage">
+          <article class="page-sheet" id="page-sheet" data-album-theme="white" data-album-font="gothic">
+            <div class="page-sheet-header">
+              <div class="page-folio">
+                <strong id="page-number-badge">01 / 01</strong>
+                <span aria-hidden="true">·</span>
+                <span id="page-file-name">photo.jpg</span>
+              </div>
+
+              <div class="page-tools" id="page-tools">
+                <button type="button" class="btn btn-ghost" id="btn-move-prev" title="앞 페이지로 순서 이동">
+                  앞으로 이동
+                </button>
+                <button type="button" class="btn btn-ghost" id="btn-move-next" title="뒤 페이지로 순서 이동">
+                  뒤로 이동
+                </button>
+                <button type="button" class="btn btn-danger-ghost" id="btn-delete-page" title="현재 사진 삭제">
+                  삭제
+                </button>
+              </div>
+            </div>
+
+            <!-- Cover Page View (First Page) -->
+            <div class="cover-view" id="cover-view" hidden>
+              <div class="cover-kicker">COVER</div>
+              <label for="cover-title-input" class="sr-only">표지 제목</label>
+              <input
+                id="cover-title-input"
+                type="text"
+                class="cover-title-input"
+                value="나의 사진 앨범"
+                placeholder="앨범 제목을 입력하세요"
+                maxlength="60"
+              />
+
+              <label for="cover-subtitle-input" class="sr-only">표지 부제</label>
+              <input
+                id="cover-subtitle-input"
+                type="text"
+                class="cover-subtitle-input"
+                placeholder="부제를 입력하세요"
+                maxlength="100"
+              />
+
+              <div class="cover-divider" aria-hidden="true"></div>
+
+              <div class="cover-meta-grid">
+                <div class="cover-meta-field">
+                  <label for="cover-author-input" class="cover-meta-label">이름</label>
+                  <input
+                    id="cover-author-input"
+                    type="text"
+                    class="cover-meta-input"
+                    placeholder="이름을 입력하세요"
+                    maxlength="40"
+                  />
+                </div>
+                <div class="cover-meta-field">
+                  <label for="cover-date-input" class="cover-meta-label">날짜</label>
+                  <input
+                    id="cover-date-input"
+                    type="text"
+                    class="cover-meta-input"
+                    placeholder="날짜를 입력하세요"
+                    maxlength="40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Photo Page View (Middle Pages) -->
+            <div class="photo-view" id="photo-view">
+              <div class="photo-frame">
+                <img id="current-photo-img" src="" alt="앨범 사진" />
+              </div>
+
+              <div class="caption-block">
+                <label for="photo-title-input" class="sr-only">사진 제목</label>
+                <input
+                  id="photo-title-input"
+                  type="text"
+                  class="caption-title-input"
+                  placeholder="사진 제목을 입력하세요"
+                  maxlength="80"
+                />
+
+                <label for="photo-desc-input" class="sr-only">사진 설명</label>
+                <textarea
+                  id="photo-desc-input"
+                  class="caption-desc-input"
+                  rows="3"
+                  placeholder="이 사진에 담긴 장소, 날짜, 기억을 자유롭게 적어보세요..."
+                  maxlength="600"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Closing Page View (Last Page) -->
+            <div class="closing-view" id="closing-view" hidden>
+              <div class="closing-kicker">EPILOGUE</div>
+              <label for="closing-text-input" class="sr-only">마무리 문구</label>
+              <textarea
+                id="closing-text-input"
+                class="closing-text-input"
+                rows="5"
+                placeholder="앨범의 마지막을 장식할 마무리 문구를 적어보세요..."
+                maxlength="600"
+              ></textarea>
+            </div>
+          </article>
+
+          <!-- Previous / Next Buttons -->
+          <nav class="pager-bar" aria-label="페이지 넘기기">
+            <button type="button" class="btn btn-secondary pager-btn" id="btn-prev-page">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              이전
+            </button>
+
+            <div class="pager-status">
+              <div class="pager-counter" id="pager-counter">1 / 1</div>
+              <div class="pager-shortcut-hint">키보드 ← · → 방향키로 넘길 수 있습니다</div>
+            </div>
+
+            <button type="button" class="btn btn-secondary pager-btn" id="btn-next-page">
+              다음
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Thumbnail Page Strip -->
+        <div class="thumb-strip-wrap">
+          <div class="thumb-strip-header">
+            <span>페이지 목록 (클릭하여 바로 이동)</span>
+            <span id="thumb-strip-count">0페이지</span>
+          </div>
+          <div class="thumb-strip" id="thumb-strip"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // Application State
+        var state = {
+          albumTitle: "나의 사진 앨범",
+          cover: {
+            title: "나의 사진 앨범",
+            subtitle: "",
+            author: "",
+            date: ""
+          },
+          closingText: "",
+          orientation: "portrait", // 'portrait' | 'landscape'
+          theme: "white", // 'white' | 'beige' | 'navy'
+          font: "gothic", // 'gothic' | 'myeongjo' | 'handwriting'
+          currentIndex: 0, // 0: cover, 1..pages.length: photos, pages.length + 1: closing
+          isExporting: false,
+          pages: [] // { id, fileName, dataUrl, width, height, title, description }
+        };
+
+        // DOM References
+        var fileInput = document.getElementById("photo-file-input");
+        var emptyStage = document.getElementById("empty-stage");
+        var emptyDropzone = document.getElementById("empty-dropzone");
+        var btnEmptyUpload = document.getElementById("btn-empty-upload");
+        var albumWorkspace = document.getElementById("album-workspace");
+        var albumStage = document.getElementById("album-stage");
+        var pageSheet = document.getElementById("page-sheet");
+
+        var topbarCount = document.getElementById("topbar-count");
+        var btnExportPng = document.getElementById("btn-export-png");
+        var btnExportPngLabel = document.getElementById("btn-export-png-label");
+        var btnExportPdf = document.getElementById("btn-export-pdf");
+        var btnExportLabel = document.getElementById("btn-export-label");
+
+        var albumTitleInput = document.getElementById("album-title-input");
+        var fontButtons = document.querySelectorAll("[data-font]");
+        var themeButtons = document.querySelectorAll("[data-theme]");
+        var orientationButtons = document.querySelectorAll("[data-orientation]");
+        var btnAddPhotos = document.getElementById("btn-add-photos");
+        var btnClearAll = document.getElementById("btn-clear-all");
+
+        var pageNumberBadge = document.getElementById("page-number-badge");
+        var pageFileName = document.getElementById("page-file-name");
+        var pageTools = document.getElementById("page-tools");
+        var btnMovePrev = document.getElementById("btn-move-prev");
+        var btnMoveNext = document.getElementById("btn-move-next");
+        var btnDeletePage = document.getElementById("btn-delete-page");
+
+        var coverView = document.getElementById("cover-view");
+        var coverTitleInput = document.getElementById("cover-title-input");
+        var coverSubtitleInput = document.getElementById("cover-subtitle-input");
+        var coverAuthorInput = document.getElementById("cover-author-input");
+        var coverDateInput = document.getElementById("cover-date-input");
+
+        var photoView = document.getElementById("photo-view");
+        var currentPhotoImg = document.getElementById("current-photo-img");
+        var photoTitleInput = document.getElementById("photo-title-input");
+        var photoDescInput = document.getElementById("photo-desc-input");
+
+        var closingView = document.getElementById("closing-view");
+        var closingTextInput = document.getElementById("closing-text-input");
+
+        var btnPrevPage = document.getElementById("btn-prev-page");
+        var btnNextPage = document.getElementById("btn-next-page");
+        var pagerCounter = document.getElementById("pager-counter");
+
+        var thumbStrip = document.getElementById("thumb-strip");
+        var thumbStripCount = document.getElementById("thumb-strip-count");
+        var toastEl = document.getElementById("toast");
+
+        var toastTimer = null;
+
+        function showToast(message) {
+          toastEl.textContent = message;
+          toastEl.classList.add("is-visible");
+          if (toastTimer) {
+            clearTimeout(toastTimer);
+          }
+          toastTimer = setTimeout(function () {
+            toastEl.classList.remove("is-visible");
+          }, 2600);
+        }
+
+        function pad2(num) {
+          return num < 10 ? "0" + num : String(num);
+        }
+
+        function createId() {
+          return "pg_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+        }
+
+        // Normalize image orientation & generate clean data URL via Image + Canvas
+        function readAndNormalizeImage(file) {
+          return new Promise(function (resolve, reject) {
+            if (!file.type || file.type.indexOf("image/") !== 0) {
+              reject(new Error("이미지 파일만 업로드할 수 있습니다."));
+              return;
+            }
+
+            var objectUrl = URL.createObjectURL(file);
+            var img = new Image();
+
+            img.onload = function () {
+              try {
+                var maxDim = 2400;
+                var w = img.naturalWidth || img.width;
+                var h = img.naturalHeight || img.height;
+
+                if (w > maxDim || h > maxDim) {
+                  var ratio = Math.min(maxDim / w, maxDim / h);
+                  w = Math.round(w * ratio);
+                  h = Math.round(h * ratio);
+                }
+
+                var canvas = document.createElement("canvas");
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+
+                var dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+                URL.revokeObjectURL(objectUrl);
+
+                var baseName = file.name.replace(/\.[^/.]+$/, "");
+                resolve({
+                  id: createId(),
+                  fileName: file.name,
+                  dataUrl: dataUrl,
+                  width: w,
+                  height: h,
+                  title: baseName,
+                  description: ""
+                });
+              } catch (err) {
+                URL.revokeObjectURL(objectUrl);
+                reject(err);
+              }
+            };
+
+            img.onerror = function () {
+              URL.revokeObjectURL(objectUrl);
+              reject(new Error("이미지를 불러오지 못했습니다: " + file.name));
+            };
+
+            img.src = objectUrl;
+          });
+        }
+
+        function handleFiles(fileList) {
+          if (!fileList || fileList.length === 0) return;
+
+          var files = Array.prototype.slice.call(fileList).filter(function (f) {
+            return f.type && f.type.indexOf("image/") === 0;
+          });
+
+          if (files.length === 0) {
+            showToast("이미지 파일(JPG, PNG, WEBP)을 선택해주세요.");
+            return;
+          }
+
+          var wasEmpty = state.pages.length === 0;
+          var prevCount = state.pages.length;
+
+          Promise.all(
+            files.map(function (file) {
+              return readAndNormalizeImage(file).catch(function () {
+                return null;
+              });
+            })
+          ).then(function (results) {
+            var added = results.filter(Boolean);
+            if (added.length === 0) {
+              showToast("불러올 수 있는 이미지가 없습니다.");
+              return;
+            }
+
+            state.pages = state.pages.concat(added);
+            if (wasEmpty) {
+              state.currentIndex = 0; // Start on the cover page
+            } else {
+              state.currentIndex = prevCount + 1; // Jump to first newly added photo
+            }
+
+            render();
+            showToast(added.length + "장의 사진을 앨범에 추가했습니다.");
+          });
+        }
+
+        function getTotalSpreadPages() {
+          if (state.pages.length === 0) return 0;
+          return state.pages.length + 2; // Cover + Photos + Closing
+        }
+
+        function goToPage(index, animate) {
+          var totalSpread = getTotalSpreadPages();
+          if (totalSpread === 0) return;
+          var clamped = Math.max(0, Math.min(index, totalSpread - 1));
+          if (clamped === state.currentIndex && !animate) return;
+
+          state.currentIndex = clamped;
+
+          if (animate) {
+            pageSheet.classList.add("is-turning");
+            setTimeout(function () {
+              render();
+              pageSheet.classList.remove("is-turning");
+            }, 90);
+          } else {
+            render();
+          }
+        }
+
+        function renderThumbnails() {
+          thumbStrip.innerHTML = "";
+          var totalSpread = getTotalSpreadPages();
+
+          // 1. Cover Thumbnail
+          var coverBtn = document.createElement("button");
+          coverBtn.type = "button";
+          coverBtn.className = "thumb-item" + (state.currentIndex === 0 ? " is-active" : "");
+          coverBtn.setAttribute("aria-label", "표지 보기");
+
+          var coverBox = document.createElement("div");
+          coverBox.className = "thumb-special-box";
+          coverBox.textContent = "표지";
+
+          var coverLabel = document.createElement("div");
+          coverLabel.className = "thumb-label";
+          coverLabel.textContent = "01 · 표지";
+
+          coverBtn.appendChild(coverBox);
+          coverBtn.appendChild(coverLabel);
+          coverBtn.addEventListener("click", function () {
+            goToPage(0, true);
+          });
+          thumbStrip.appendChild(coverBtn);
+
+          // 2. Photo Thumbnails
+          state.pages.forEach(function (page, idx) {
+            var spreadIdx = idx + 1;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "thumb-item" + (spreadIdx === state.currentIndex ? " is-active" : "");
+            btn.setAttribute("aria-label", (spreadIdx + 1) + "페이지 보기");
+
+            var imgBox = document.createElement("div");
+            imgBox.className = "thumb-img-box";
+
+            var img = document.createElement("img");
+            img.src = page.dataUrl;
+            img.alt = page.title || (idx + 1) + "번 사진";
+            imgBox.appendChild(img);
+
+            var label = document.createElement("div");
+            label.className = "thumb-label";
+            label.textContent = pad2(spreadIdx + 1) + " · " + (page.title ? page.title : "제목 없음");
+
+            btn.appendChild(imgBox);
+            btn.appendChild(label);
+
+            btn.addEventListener("click", function () {
+              goToPage(spreadIdx, true);
+            });
+
+            thumbStrip.appendChild(btn);
+          });
+
+          // 3. Closing Thumbnail
+          var closingIdx = totalSpread - 1;
+          var closingBtn = document.createElement("button");
+          closingBtn.type = "button";
+          closingBtn.className = "thumb-item" + (state.currentIndex === closingIdx ? " is-active" : "");
+          closingBtn.setAttribute("aria-label", "마무리 페이지 보기");
+
+          var closingBox = document.createElement("div");
+          closingBox.className = "thumb-special-box";
+          closingBox.textContent = "마무리";
+
+          var closingLabel = document.createElement("div");
+          closingLabel.className = "thumb-label";
+          closingLabel.textContent = pad2(closingIdx + 1) + " · 마무리";
+
+          closingBtn.appendChild(closingBox);
+          closingBtn.appendChild(closingLabel);
+          closingBtn.addEventListener("click", function () {
+            goToPage(closingIdx, true);
+          });
+          thumbStrip.appendChild(closingBtn);
+
+          var addBtn = document.createElement("button");
+          addBtn.type = "button";
+          addBtn.className = "thumb-add-btn";
+          addBtn.innerHTML =
+            '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>' +
+            "<span>사진 추가</span>";
+          addBtn.addEventListener("click", function () {
+            fileInput.click();
+          });
+          thumbStrip.appendChild(addBtn);
+
+          // Keep active thumbnail visible
+          var activeThumb = thumbStrip.querySelector(".thumb-item.is-active");
+          if (activeThumb && typeof activeThumb.scrollIntoView === "function") {
+            activeThumb.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+          }
+        }
+
+        function render() {
+          var photoCount = state.pages.length;
+          var totalSpread = getTotalSpreadPages();
+          topbarCount.textContent = "사진 " + photoCount + "장";
+          btnExportPng.disabled = photoCount === 0 || state.isExporting;
+          btnExportPdf.disabled = photoCount === 0 || state.isExporting;
+
+          if (photoCount === 0) {
+            emptyStage.hidden = false;
+            albumWorkspace.hidden = true;
+            return;
+          }
+
+          emptyStage.hidden = true;
+          albumWorkspace.hidden = false;
+
+          if (state.currentIndex >= totalSpread) {
+            state.currentIndex = totalSpread - 1;
+          }
+
+          var numStr = pad2(state.currentIndex + 1) + " / " + pad2(totalSpread);
+          pageNumberBadge.textContent = numStr;
+          pagerCounter.textContent = (state.currentIndex + 1) + " / " + totalSpread;
+          thumbStripCount.textContent = totalSpread + "페이지 (표지·마무리 포함)";
+
+          btnPrevPage.disabled = state.currentIndex === 0;
+          btnNextPage.disabled = state.currentIndex === totalSpread - 1;
+
+          if (state.currentIndex === 0) {
+            // Cover Page
+            pageFileName.textContent = "표지";
+            pageTools.style.display = "none";
+            coverView.hidden = false;
+            photoView.hidden = true;
+            closingView.hidden = true;
+
+            coverTitleInput.value = state.cover.title;
+            coverSubtitleInput.value = state.cover.subtitle;
+            coverAuthorInput.value = state.cover.author;
+            coverDateInput.value = state.cover.date;
+          } else if (state.currentIndex === totalSpread - 1) {
+            // Closing Page
+            pageFileName.textContent = "마무리";
+            pageTools.style.display = "none";
+            coverView.hidden = true;
+            photoView.hidden = true;
+            closingView.hidden = false;
+
+            closingTextInput.value = state.closingText;
+          } else {
+            // Photo Page
+            var photoIdx = state.currentIndex - 1;
+            var page = state.pages[photoIdx];
+            pageFileName.textContent = page.fileName;
+            pageTools.style.display = "flex";
+            coverView.hidden = true;
+            photoView.hidden = false;
+            closingView.hidden = true;
+
+            currentPhotoImg.src = page.dataUrl;
+            currentPhotoImg.alt = page.title || page.fileName || "앨범 사진";
+
+            photoTitleInput.value = page.title;
+            photoDescInput.value = page.description;
+
+            btnMovePrev.disabled = photoIdx === 0;
+            btnMoveNext.disabled = photoIdx === photoCount - 1;
+          }
+
+          renderThumbnails();
+        }
+
+        // Text wrapping helper for Canvas (supports Korean character wrapping + spaces + newlines)
+        function wrapCanvasText(ctx, text, maxWidth) {
+          if (!text) return [];
+          var paragraphs = String(text).split(/\r?\n/);
+          var lines = [];
+
+          paragraphs.forEach(function (para) {
+            if (para === "") {
+              lines.push("");
+              return;
+            }
+            var chars = Array.from(para);
+            var currentLine = "";
+
+            for (var i = 0; i < chars.length; i++) {
+              var testLine = currentLine + chars[i];
+              if (ctx.measureText(testLine).width > maxWidth && currentLine.length > 0) {
+                // Prefer breaking at last space if reasonable
+                var lastSpace = currentLine.lastIndexOf(" ");
+                if (lastSpace > Math.floor(currentLine.length * 0.45)) {
+                  lines.push(currentLine.slice(0, lastSpace));
+                  currentLine = currentLine.slice(lastSpace + 1) + chars[i];
+                } else {
+                  lines.push(currentLine);
+                  currentLine = chars[i];
+                }
+              } else {
+                currentLine = testLine;
+              }
+            }
+            if (currentLine.length > 0) {
+              lines.push(currentLine);
+            }
+          });
+
+          return lines;
+        }
+
+        function loadImageForCanvas(dataUrl) {
+          return new Promise(function (resolve, reject) {
+            var img = new Image();
+            img.onload = function () {
+              resolve(img);
+            };
+            img.onerror = reject;
+            img.src = dataUrl;
+          });
+        }
+
+        function getFontCanvasFamily(fontKey) {
+          if (fontKey === "myeongjo") {
+            return '"Noto Serif KR", Georgia, serif';
+          }
+          if (fontKey === "handwriting") {
+            return '"Gaegu", "Noto Sans KR", cursive';
+          }
+          return '"Noto Sans KR", sans-serif';
+        }
+
+        function ensureFontLoaded(fontKey) {
+          var family = getFontCanvasFamily(fontKey);
+          if (!document.fonts || typeof document.fonts.load !== "function") {
+            return Promise.resolve();
+          }
+          return Promise.all([
+            document.fonts.load("400 32px " + family),
+            document.fonts.load("500 38px " + family),
+            document.fonts.load("700 64px " + family)
+          ])
+            .then(function () {
+              return document.fonts.ready;
+            })
+            .catch(function () {
+              return document.fonts.ready;
+            });
+        }
+
+        function getThemeCanvasPalette(themeKey) {
+          if (themeKey === "beige") {
+            return {
+              bg: "#f4ecdc",
+              innerBg: "#ebe1cc",
+              border: "#d8cbb0",
+              divider: "#bfa984",
+              textPrimary: "#2c2219",
+              textSecondary: "#5c4c3c",
+              textMuted: "#786754"
+            };
+          }
+          if (themeKey === "navy") {
+            return {
+              bg: "#14213d",
+              innerBg: "#1b2b4d",
+              border: "#2c3f68",
+              divider: "#4b6599",
+              textPrimary: "#f4f6fb",
+              textSecondary: "#cbd5e1",
+              textMuted: "#94a3b8"
+            };
+          }
+          return {
+            bg: "#ffffff",
+            innerBg: "#faf9f6",
+            border: "#e2dfd7",
+            divider: "#cfcbc0",
+            textPrimary: "#18181b",
+            textSecondary: "#52525b",
+            textMuted: "#71717a"
+          };
+        }
+
+        function renderPageToPdfCanvas(page, index, total, albumTitle, orientation, fontKey, themeKey) {
+          var fontFamily = getFontCanvasFamily(fontKey);
+          var palette = getThemeCanvasPalette(themeKey);
+          return loadImageForCanvas(page.dataUrl).then(function (img) {
+            // High-DPI A4 canvas (8 px per mm)
+            var mmW = orientation === "landscape" ? 297 : 210;
+            var mmH = orientation === "landscape" ? 210 : 297;
+            var scale = 8;
+            var W = mmW * scale; // 1680 or 2376
+            var H = mmH * scale; // 2376 or 1680
+
+            var canvas = document.createElement("canvas");
+            canvas.width = W;
+            canvas.height = H;
+            var ctx = canvas.getContext("2d");
+
+            // Page background
+            ctx.fillStyle = palette.bg;
+            ctx.fillRect(0, 0, W, H);
+
+            var marginX = orientation === "landscape" ? 130 : 120;
+            var topY = 96;
+            var bottomMargin = 96;
+            var contentW = W - marginX * 2;
+
+            // Header folio bar
+            ctx.fillStyle = palette.textMuted;
+            ctx.font = "500 24px " + fontFamily;
+            ctx.textBaseline = "top";
+            ctx.textAlign = "left";
+            var safeAlbumTitle = (albumTitle || "").trim();
+            if (safeAlbumTitle) {
+              ctx.fillText(safeAlbumTitle, marginX, topY);
+            }
+
+            ctx.textAlign = "right";
+            ctx.fillText(pad2(index + 1) + " / " + pad2(total), W - marginX, topY);
+
+            // Header hairline
+            var headerLineY = topY + 42;
+            ctx.strokeStyle = palette.border;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(marginX, headerLineY);
+            ctx.lineTo(W - marginX, headerLineY);
+            ctx.stroke();
+
+            // Measure caption block height first so photo adapts cleanly
+            var cleanTitle = (page.title || "").trim();
+            var cleanDesc = (page.description || "").trim();
+
+            ctx.textAlign = "left";
+            ctx.font = "700 44px " + fontFamily;
+            var titleLines = cleanTitle ? wrapCanvasText(ctx, cleanTitle, contentW).slice(0, 2) : [];
+
+            ctx.font = "400 28px " + fontFamily;
+            var descLines = cleanDesc ? wrapCanvasText(ctx, cleanDesc, contentW).slice(0, 8) : [];
+
+            var titleLineH = 60;
+            var descLineH = 44;
+            var captionPadTop = titleLines.length > 0 || descLines.length > 0 ? 44 : 0;
+            var gapBetweenTitleAndDesc = titleLines.length > 0 && descLines.length > 0 ? 18 : 0;
+
+            var captionHeight =
+              captionPadTop +
+              titleLines.length * titleLineH +
+              gapBetweenTitleAndDesc +
+              descLines.length * descLineH;
+
+            // Photo frame bounds
+            var frameTop = headerLineY + 42;
+            var frameBottom = H - bottomMargin - captionHeight;
+            var frameH = Math.max(400, frameBottom - frameTop);
+            var frameW = contentW;
+
+            // Subtle archival mat background behind photo
+            ctx.fillStyle = palette.innerBg;
+            ctx.fillRect(marginX, frameTop, frameW, frameH);
+            ctx.strokeStyle = palette.border;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(marginX, frameTop, frameW, frameH);
+
+            // Draw photo centered with padding inside frame
+            var matPad = 32;
+            var availW = frameW - matPad * 2;
+            var availH = frameH - matPad * 2;
+            var imgRatio = Math.min(availW / img.width, availH / img.height);
+            var drawW = Math.round(img.width * imgRatio);
+            var drawH = Math.round(img.height * imgRatio);
+            var drawX = Math.round(marginX + (frameW - drawW) / 2);
+            var drawY = Math.round(frameTop + (frameH - drawH) / 2);
+
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+            // Draw Caption Block
+            if (titleLines.length > 0 || descLines.length > 0) {
+              var cursorY = frameTop + frameH + captionPadTop;
+
+              if (titleLines.length > 0) {
+                ctx.fillStyle = palette.textPrimary;
+                ctx.font = "700 44px " + fontFamily;
+                titleLines.forEach(function (line) {
+                  ctx.fillText(line, marginX, cursorY);
+                  cursorY += titleLineH;
+                });
+              }
+
+              if (descLines.length > 0) {
+                cursorY += gapBetweenTitleAndDesc;
+                ctx.fillStyle = palette.textSecondary;
+                ctx.font = "400 28px " + fontFamily;
+                descLines.forEach(function (line) {
+                  ctx.fillText(line, marginX, cursorY);
+                  cursorY += descLineH;
+                });
+              }
+            }
+
+            return {
+              canvas: canvas,
+              dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+              mmW: mmW,
+              mmH: mmH
+            };
+          });
+        }
+
+        function renderCoverToPdfCanvas(cover, orientation, fontKey, themeKey) {
+          var fontFamily = getFontCanvasFamily(fontKey);
+          var palette = getThemeCanvasPalette(themeKey);
+          return new Promise(function (resolve) {
+            var mmW = orientation === "landscape" ? 297 : 210;
+            var mmH = orientation === "landscape" ? 210 : 297;
+            var scale = 8;
+            var W = mmW * scale;
+            var H = mmH * scale;
+
+            var canvas = document.createElement("canvas");
+            canvas.width = W;
+            canvas.height = H;
+            var ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = palette.bg;
+            ctx.fillRect(0, 0, W, H);
+
+            var borderInset = 72;
+            ctx.fillStyle = palette.innerBg;
+            ctx.fillRect(borderInset, borderInset, W - borderInset * 2, H - borderInset * 2);
+            ctx.strokeStyle = palette.border;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(borderInset, borderInset, W - borderInset * 2, H - borderInset * 2);
+
+            var contentW = W - 320;
+            var cleanTitle = (cover.title || "").trim();
+            var cleanSubtitle = (cover.subtitle || "").trim();
+            var cleanAuthor = (cover.author || "").trim();
+            var cleanDate = (cover.date || "").trim();
+
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+
+            ctx.font = "700 84px " + fontFamily;
+            var titleLines = cleanTitle ? wrapCanvasText(ctx, cleanTitle, contentW).slice(0, 3) : [];
+
+            ctx.font = "500 38px " + fontFamily;
+            var subtitleLines = cleanSubtitle ? wrapCanvasText(ctx, cleanSubtitle, contentW).slice(0, 3) : [];
+
+            var titleLineH = 112;
+            var subtitleLineH = 56;
+            var blockHeight =
+              titleLines.length * titleLineH +
+              (titleLines.length > 0 && subtitleLines.length > 0 ? 28 : 0) +
+              subtitleLines.length * subtitleLineH +
+              120 +
+              (cleanAuthor || cleanDate ? 54 : 0);
+
+            var startY = Math.max(220, Math.round((H - blockHeight) / 2));
+            var cursorY = startY;
+            var centerX = W / 2;
+
+            if (titleLines.length > 0) {
+              ctx.fillStyle = palette.textPrimary;
+              ctx.font = "700 84px " + fontFamily;
+              titleLines.forEach(function (line) {
+                ctx.fillText(line, centerX, cursorY);
+                cursorY += titleLineH;
+              });
+            }
+
+            if (subtitleLines.length > 0) {
+              if (titleLines.length > 0) cursorY += 28;
+              ctx.fillStyle = palette.textSecondary;
+              ctx.font = "500 38px " + fontFamily;
+              subtitleLines.forEach(function (line) {
+                ctx.fillText(line, centerX, cursorY);
+                cursorY += subtitleLineH;
+              });
+            }
+
+            cursorY += 56;
+            ctx.strokeStyle = palette.divider;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 70, cursorY);
+            ctx.lineTo(centerX + 70, cursorY);
+            ctx.stroke();
+            cursorY += 64;
+
+            if (cleanAuthor || cleanDate) {
+              var metaParts = [];
+              if (cleanAuthor) metaParts.push(cleanAuthor);
+              if (cleanDate) metaParts.push(cleanDate);
+              ctx.fillStyle = palette.textPrimary;
+              ctx.font = "600 34px " + fontFamily;
+              ctx.fillText(metaParts.join("  ·  "), centerX, cursorY);
+            }
+
+            resolve({
+              canvas: canvas,
+              dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+              mmW: mmW,
+              mmH: mmH
+            });
+          });
+        }
+
+        function renderClosingToPdfCanvas(closingText, index, total, albumTitle, orientation, fontKey, themeKey) {
+          var fontFamily = getFontCanvasFamily(fontKey);
+          var palette = getThemeCanvasPalette(themeKey);
+          return new Promise(function (resolve) {
+            var mmW = orientation === "landscape" ? 297 : 210;
+            var mmH = orientation === "landscape" ? 210 : 297;
+            var scale = 8;
+            var W = mmW * scale;
+            var H = mmH * scale;
+
+            var canvas = document.createElement("canvas");
+            canvas.width = W;
+            canvas.height = H;
+            var ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = palette.bg;
+            ctx.fillRect(0, 0, W, H);
+
+            var borderInset = 72;
+            ctx.fillStyle = palette.innerBg;
+            ctx.fillRect(borderInset, borderInset, W - borderInset * 2, H - borderInset * 2);
+            ctx.strokeStyle = palette.border;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(borderInset, borderInset, W - borderInset * 2, H - borderInset * 2);
+
+            var marginX = orientation === "landscape" ? 130 : 120;
+            var topY = 112;
+            ctx.fillStyle = palette.textMuted;
+            ctx.font = "500 24px " + fontFamily;
+            ctx.textBaseline = "top";
+            ctx.textAlign = "left";
+            var safeAlbumTitle = (albumTitle || "").trim();
+            if (safeAlbumTitle) {
+              ctx.fillText(safeAlbumTitle, marginX, topY);
+            }
+            ctx.textAlign = "right";
+            ctx.fillText(pad2(index + 1) + " / " + pad2(total), W - marginX, topY);
+
+            var cleanClosing = (closingText || "").trim();
+            var contentW = W - 360;
+            ctx.textAlign = "center";
+            ctx.font = "500 38px " + fontFamily;
+            var lines = cleanClosing ? wrapCanvasText(ctx, cleanClosing, contentW).slice(0, 12) : [];
+
+            var lineH = 68;
+            var textBlockH = lines.length * lineH;
+            var cursorY = Math.round((H - textBlockH) / 2);
+
+            if (lines.length > 0) {
+              ctx.fillStyle = palette.textPrimary;
+              lines.forEach(function (line) {
+                ctx.fillText(line, W / 2, cursorY);
+                cursorY += lineH;
+              });
+            }
+
+            resolve({
+              canvas: canvas,
+              dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+              mmW: mmW,
+              mmH: mmH
+            });
+          });
+        }
+
+        function renderSpreadIndexToCanvas(spreadIdx, totalSpread, orientation, fontKey, themeKey) {
+          if (spreadIdx === 0) {
+            return renderCoverToPdfCanvas(state.cover, orientation, fontKey, themeKey);
+          }
+          if (spreadIdx === totalSpread - 1) {
+            return renderClosingToPdfCanvas(
+              state.closingText,
+              spreadIdx,
+              totalSpread,
+              state.cover.title || state.albumTitle,
+              orientation,
+              fontKey,
+              themeKey
+            );
+          }
+          return renderPageToPdfCanvas(
+            state.pages[spreadIdx - 1],
+            spreadIdx,
+            totalSpread,
+            state.cover.title || state.albumTitle,
+            orientation,
+            fontKey,
+            themeKey
+          );
+        }
+
+        function exportCurrentPageToPng() {
+          if (state.pages.length === 0 || state.isExporting) return;
+
+          state.isExporting = true;
+          btnExportPng.disabled = true;
+          btnExportPdf.disabled = true;
+          btnExportPngLabel.textContent = "PNG 생성 중...";
+
+          var totalSpread = getTotalSpreadPages();
+          var targetIndex = state.currentIndex;
+          var fontKey = state.font;
+          var themeKey = state.theme;
+
+          ensureFontLoaded(fontKey)
+            .then(function () {
+              return renderSpreadIndexToCanvas(targetIndex, totalSpread, state.orientation, fontKey, themeKey);
+            })
+            .then(function (rendered) {
+              var safeName = (state.cover.title || state.albumTitle || "사진앨범")
+                .trim()
+                .replace(/[\\/:*?"<>|]+/g, "_")
+                .replace(/\s+/g, "_");
+              if (!safeName) safeName = "사진앨범";
+
+              var pngUrl = rendered.canvas.toDataURL("image/png");
+              var link = document.createElement("a");
+              link.href = pngUrl;
+              link.download = safeName + "_" + pad2(targetIndex + 1) + ".png";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+
+              state.isExporting = false;
+              btnExportPngLabel.textContent = "PNG 저장";
+              btnExportPng.disabled = false;
+              btnExportPdf.disabled = false;
+              showToast((targetIndex + 1) + "페이지를 PNG 이미지로 저장했습니다.");
+            })
+            .catch(function (err) {
+              console.error(err);
+              state.isExporting = false;
+              btnExportPngLabel.textContent = "PNG 저장";
+              btnExportPng.disabled = false;
+              btnExportPdf.disabled = false;
+              showToast("PNG 생성 중 오류가 발생했습니다.");
+            });
+        }
+
+        function exportAlbumToPdf() {
+          if (state.pages.length === 0 || state.isExporting) return;
+
+          if (!window.jspdf || !window.jspdf.jsPDF) {
+            showToast("PDF 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+          }
+
+          state.isExporting = true;
+          btnExportPng.disabled = true;
+          btnExportPdf.disabled = true;
+          btnExportLabel.textContent = "PDF 준비 중...";
+
+          var orientation = state.orientation;
+          var fontKey = state.font;
+          var totalSpread = getTotalSpreadPages();
+          var JsPDF = window.jspdf.jsPDF;
+          var doc = new JsPDF({
+            orientation: orientation,
+            unit: "mm",
+            format: "a4",
+            compress: true
+          });
+
+          ensureFontLoaded(fontKey).then(function () {
+            var idx = 0;
+
+            function processNext() {
+              if (idx >= totalSpread) {
+                var safeName = (state.cover.title || state.albumTitle || "사진앨범")
+                  .trim()
+                  .replace(/[\\/:*?"<>|]+/g, "_")
+                  .replace(/\s+/g, "_");
+                if (!safeName) safeName = "사진앨범";
+
+                doc.save(safeName + ".pdf");
+                state.isExporting = false;
+                btnExportLabel.textContent = "PDF 저장";
+                btnExportPng.disabled = false;
+                btnExportPdf.disabled = false;
+                showToast("총 " + totalSpread + "페이지 PDF 파일로 저장했습니다.");
+                return;
+              }
+
+              btnExportLabel.textContent = "PDF 생성 중 (" + (idx + 1) + "/" + totalSpread + ")";
+
+              renderSpreadIndexToCanvas(idx, totalSpread, orientation, fontKey, "white")
+                .then(function (rendered) {
+                  if (idx > 0) {
+                    doc.addPage("a4", orientation);
+                  }
+                  doc.addImage(
+                    rendered.dataUrl,
+                    "JPEG",
+                    0,
+                    0,
+                    rendered.mmW,
+                    rendered.mmH,
+                    undefined,
+                    "FAST"
+                  );
+                  idx += 1;
+                  setTimeout(processNext, 16);
+                })
+                .catch(function (err) {
+                  console.error(err);
+                  state.isExporting = false;
+                  btnExportLabel.textContent = "PDF 저장";
+                  btnExportPng.disabled = false;
+                  btnExportPdf.disabled = false;
+                  showToast("PDF 생성 중 오류가 발생했습니다.");
+                });
+            }
+
+            processNext();
+          });
+        }
+
+        // Event Listeners: File Inputs & Drag/Drop
+        btnEmptyUpload.addEventListener("click", function (e) {
+          e.stopPropagation();
+          fileInput.click();
+        });
+
+        emptyDropzone.addEventListener("click", function () {
+          fileInput.click();
+        });
+
+        emptyDropzone.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileInput.click();
+          }
+        });
+
+        btnAddPhotos.addEventListener("click", function () {
+          fileInput.click();
+        });
+
+        fileInput.addEventListener("change", function (e) {
+          handleFiles(e.target.files);
+          fileInput.value = "";
+        });
+
+        function setupDropTarget(el) {
+          ["dragenter", "dragover"].forEach(function (evtName) {
+            el.addEventListener(evtName, function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              el.classList.add("is-dragover");
+            });
+          });
+
+          ["dragleave", "drop"].forEach(function (evtName) {
+            el.addEventListener(evtName, function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              el.classList.remove("is-dragover");
+            });
+          });
+
+          el.addEventListener("drop", function (e) {
+            if (e.dataTransfer && e.dataTransfer.files) {
+              handleFiles(e.dataTransfer.files);
+            }
+          });
+        }
+
+        setupDropTarget(emptyDropzone);
+        setupDropTarget(albumStage);
+
+        // Event Listeners: Album & Page Editing
+        albumTitleInput.addEventListener("input", function (e) {
+          state.albumTitle = e.target.value;
+          state.cover.title = e.target.value;
+          if (state.currentIndex === 0) {
+            coverTitleInput.value = e.target.value;
+          }
+        });
+
+        coverTitleInput.addEventListener("input", function (e) {
+          state.cover.title = e.target.value;
+          state.albumTitle = e.target.value;
+          albumTitleInput.value = e.target.value;
+        });
+
+        coverSubtitleInput.addEventListener("input", function (e) {
+          state.cover.subtitle = e.target.value;
+        });
+
+        coverAuthorInput.addEventListener("input", function (e) {
+          state.cover.author = e.target.value;
+        });
+
+        coverDateInput.addEventListener("input", function (e) {
+          state.cover.date = e.target.value;
+        });
+
+        closingTextInput.addEventListener("input", function (e) {
+          state.closingText = e.target.value;
+        });
+
+        photoTitleInput.addEventListener("input", function (e) {
+          if (state.currentIndex <= 0 || state.currentIndex > state.pages.length) return;
+          var photoIdx = state.currentIndex - 1;
+          var page = state.pages[photoIdx];
+          if (!page) return;
+          page.title = e.target.value;
+          var activeThumbLabel = thumbStrip.querySelector(".thumb-item.is-active .thumb-label");
+          if (activeThumbLabel) {
+            activeThumbLabel.textContent =
+              pad2(state.currentIndex + 1) + " · " + (page.title ? page.title : "제목 없음");
+          }
+        });
+
+        photoDescInput.addEventListener("input", function (e) {
+          if (state.currentIndex <= 0 || state.currentIndex > state.pages.length) return;
+          var photoIdx = state.currentIndex - 1;
+          var page = state.pages[photoIdx];
+          if (!page) return;
+          page.description = e.target.value;
+        });
+
+        // Album Font Toggle
+        fontButtons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var nextFont = btn.getAttribute("data-font");
+            state.font = nextFont;
+            pageSheet.setAttribute("data-album-font", nextFont);
+            fontButtons.forEach(function (b) {
+              b.classList.toggle("is-active", b === btn);
+            });
+          });
+        });
+
+        // Album Color Mood Toggle
+        themeButtons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var nextTheme = btn.getAttribute("data-theme");
+            state.theme = nextTheme;
+            pageSheet.setAttribute("data-album-theme", nextTheme);
+            themeButtons.forEach(function (b) {
+              b.classList.toggle("is-active", b === btn);
+            });
+          });
+        });
+
+        // Orientation Segmented Toggle
+        orientationButtons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var nextOrientation = btn.getAttribute("data-orientation");
+            state.orientation = nextOrientation;
+            orientationButtons.forEach(function (b) {
+              b.classList.toggle("is-active", b === btn);
+            });
+          });
+        });
+
+        // Page Navigation (Prev / Next)
+        btnPrevPage.addEventListener("click", function () {
+          goToPage(state.currentIndex - 1, true);
+        });
+
+        btnNextPage.addEventListener("click", function () {
+          goToPage(state.currentIndex + 1, true);
+        });
+
+        document.addEventListener("keydown", function (e) {
+          if (state.pages.length === 0) return;
+          var activeTag = document.activeElement ? document.activeElement.tagName : "";
+          if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            goToPage(state.currentIndex - 1, true);
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            goToPage(state.currentIndex + 1, true);
+          }
+        });
+
+        // Page Reordering & Deletion (Photo Pages Only)
+        btnMovePrev.addEventListener("click", function () {
+          if (state.currentIndex <= 0 || state.currentIndex > state.pages.length) return;
+          var photoIdx = state.currentIndex - 1;
+          if (photoIdx <= 0) return;
+          var temp = state.pages[photoIdx - 1];
+          state.pages[photoIdx - 1] = state.pages[photoIdx];
+          state.pages[photoIdx] = temp;
+          state.currentIndex = state.currentIndex - 1;
+          render();
+        });
+
+        btnMoveNext.addEventListener("click", function () {
+          if (state.currentIndex <= 0 || state.currentIndex > state.pages.length) return;
+          var photoIdx = state.currentIndex - 1;
+          if (photoIdx >= state.pages.length - 1) return;
+          var temp = state.pages[photoIdx + 1];
+          state.pages[photoIdx + 1] = state.pages[photoIdx];
+          state.pages[photoIdx] = temp;
+          state.currentIndex = state.currentIndex + 1;
+          render();
+        });
+
+        btnDeletePage.addEventListener("click", function () {
+          if (state.currentIndex <= 0 || state.currentIndex > state.pages.length) return;
+          var photoIdx = state.currentIndex - 1;
+          state.pages.splice(photoIdx, 1);
+          if (state.pages.length === 0) {
+            state.currentIndex = 0;
+          } else if (state.currentIndex > state.pages.length) {
+            state.currentIndex = state.pages.length;
+          }
+          render();
+          showToast("해당 페이지를 삭제했습니다.");
+        });
+
+        btnClearAll.addEventListener("click", function () {
+          if (state.pages.length === 0) return;
+          state.pages = [];
+          state.currentIndex = 0;
+          render();
+          showToast("앨범을 초기화했습니다.");
+        });
+
+        // Export PNG & PDF
+        btnExportPng.addEventListener("click", exportCurrentPageToPng);
+        btnExportPdf.addEventListener("click", exportAlbumToPdf);
+
+        // Initial Render
+        render();
+      })();
+    </script>
+  </body>
+</html>
